@@ -9,3 +9,6 @@
 此外，程式碼還包含一個問題搜索的功能。它讓用戶輸入一個問題，然後搜索最相關的問題並將其輸出。
 
 程式碼還定義了兩個方法：GetEmbeddings 和 GetQuestions。GetEmbeddings 方法調用 OpenAI API 並獲取嵌入向量，然後將其轉換為 List 的形式。GetQuestions 方法則返回一個包含多個問題的字符串數組。
+
+QA問題來源:  
+https://www.cdc.gov.tw/Category/QAPage/JCyOJznV52tt35_bDBeHfA
