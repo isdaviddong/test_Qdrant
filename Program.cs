@@ -3,60 +3,75 @@ using Azure.AI.OpenAI;
 using Qdrant.Client;
 using Qdrant.Client.Grpc;
 
-
+//open ai key
 var apiKey = "👉openai_api_key";
-var endpoint = new Uri("https://api.openai.com/v1/embeddings");
 var openAIClient = new OpenAIClient(apiKey);
 
-var Qdrant_collection_name = "test_collection3";
-
+//連線到 Qdrant DB
+var Qdrant_collection_name = "test_collection";
 var qdrantClient = new QdrantClient("localhost", 6334);
 var isExist = await qdrantClient.CollectionExistsAsync(Qdrant_collection_name);
+
+//如果不存在，則建立一個新的集合
 if (!isExist)
 {
+    // 建立一個新的集合
     await qdrantClient.CreateCollectionAsync(
         collectionName: Qdrant_collection_name,
         vectorsConfig: new VectorParams { Size = 1536, Distance = Distance.Dot }
     );
+    // 取得問題列表
+    var Questions = GetQuestions();
+
+    var points = new List<PointStruct>();
+    int i = 0;
+
+    Console.WriteLine($"\n載入問題清單...");
+    foreach (var item in Questions)
+    {
+        // 將問題insert到集合
+        points.Add(
+             new()
+             {
+                 Id = (ulong)i++, // 選擇一個唯一ID
+                 Payload = { ["type"] = "CDC", ["utterance"] = item }, // 其他metadata
+                 // 取得問題的嵌入向量
+                 Vectors = GetEmbeddings(openAIClient, item).ToArray()  // 確保向量是以 List<float> 的形式
+             }
+            );
+
+        Console.WriteLine($"processing question {i}:{item}");
+    }
+    // 將問題insert到 Qdrant DB
+    await qdrantClient.UpsertAsync(collectionName: Qdrant_collection_name, points);
 }
 
-var Questions = GetQuestions();
-
-// 創建一個點以存儲向量和任何其他相關數據
-var points = new List<PointStruct>();
-int i = 0;
-
-foreach (var item in Questions)
+// 問題搜索
+string? question = "";
+do
 {
+    //輸入問題   
+    Console.Write("\n\n請輸入與施打疫苗有關的問題('q' 離開)：");
+    question = Console.ReadLine();
+    if (string.IsNullOrEmpty(question) || question == "q" || question == "") return;
+    // 搜索最相關的問題
+    var searchResult = await qdrantClient.SearchAsync(
+       collectionName: Qdrant_collection_name,
+       vector: GetEmbeddings(openAIClient, question).ToArray(),
+       limit: 3,
+       payloadSelector: true
+    );
 
-    points.Add(
-         new()
-         {
-             Id = (ulong)i++, // 選擇一個唯一標識符
-             Payload = { ["type"] = "CDC", ["utterance"] = item }, // 任何其他相關數據
-             Vectors = GetEmbeddings(openAIClient, item).ToArray()  // 確保向量是以 List<float> 的形式
-         }
-        );
+    Console.WriteLine("\n\n 列出最相關的問題：");
+    foreach (var item in searchResult)
+    {
+        Console.WriteLine($"Score:{item.Score} utterance:{item.Payload["utterance"].StringValue}");
+    }
 
-    Console.WriteLine($"processing question {i}:{item}");
-}
-
-await qdrantClient.UpsertAsync(collectionName: Qdrant_collection_name, points);
-
-var searchResult = await qdrantClient.SearchAsync(
-   collectionName: Qdrant_collection_name,
-   vector: GetEmbeddings(openAIClient, "我不想打疫苗").ToArray(),
-   limit: 3,
-   payloadSelector: true
-);
-
-foreach (var item in searchResult)
-{
-    Console.WriteLine($"\nScore:{item.Score} utterance:{item.Payload["utterance"].StringValue}");
-}
+} while (true);
 
 
-
+// 取得嵌入向量
 static List<float> GetEmbeddings(OpenAIClient client, string utterance)
 {
     List<float> embeddingVector = new List<float>();
@@ -80,7 +95,7 @@ static List<float> GetEmbeddings(OpenAIClient client, string utterance)
     return embeddingVector;
 }
 
-
+// 取得問題列表
 string[] GetQuestions()
 {
     string[] questions = new string[]
