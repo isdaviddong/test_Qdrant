@@ -4,11 +4,11 @@ using Qdrant.Client;
 using Qdrant.Client.Grpc;
 
 //open ai key
-var apiKey = "👉openai_api_key";
+var apiKey = "👉openai_api_key"; //填入OpenAI API Key
 var openAIClient = new OpenAIClient(apiKey);
 
 //連線到 Qdrant DB
-var Qdrant_collection_name = "test_collection";
+var Qdrant_collection_name = "CDC_Caccine_QA";
 var qdrantClient = new QdrantClient("localhost", 6334);
 var isExist = await qdrantClient.CollectionExistsAsync(Qdrant_collection_name);
 
